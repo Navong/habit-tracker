@@ -1,10 +1,9 @@
 "use client"
 
-import React, { useState } from "react"
-import { X, Edit2 } from "lucide-react"
+import React from "react"
+import { X } from "lucide-react"
 import { useHabitStore } from "@/store/useHabitStore"
-import JournalModal from "./JournalModal"
-import { Button } from "@/components/ui/button"
+import { format } from "date-fns"
 
 type AllJournalsModalProps = {
   isOpen: boolean
@@ -21,7 +20,6 @@ const MOOD_EMOJIS = {
 
 const AllJournalsModal = ({ isOpen, onClose }: AllJournalsModalProps) => {
   const { getAllJournalEntries } = useHabitStore()
-  const [editingEntry, setEditingEntry] = useState<string | null>(null)
 
   const allEntries = getAllJournalEntries()
 
@@ -46,22 +44,7 @@ const AllJournalsModal = ({ isOpen, onClose }: AllJournalsModalProps) => {
             {allEntries.map((entry) => (
               <div key={entry.id} className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
                 <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-lg font-semibold">
-                    {new Date(entry.date).toLocaleDateString("default", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </h3>
-                  <Button
-                    onClick={() => setEditingEntry(entry.date)}
-                    variant="ghost"
-                    size="sm"
-                    className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                  >
-                    <Edit2 size={18} />
-                  </Button>
+                  <h3 className="text-lg font-semibold">{format(new Date(entry.date), "EEEE, MMMM d, yyyy")}</h3>
                 </div>
                 {entry.mood && (
                   <p className="text-2xl mb-2">Mood: {MOOD_EMOJIS[entry.mood as keyof typeof MOOD_EMOJIS]}</p>
@@ -78,8 +61,6 @@ const AllJournalsModal = ({ isOpen, onClose }: AllJournalsModalProps) => {
           </div>
         )}
       </div>
-
-      {editingEntry && <JournalModal isOpen={true} onClose={() => setEditingEntry(null)} date={editingEntry} />}
     </div>
   )
 }

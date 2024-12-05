@@ -11,7 +11,8 @@ import { toast } from "sonner"
 type JournalModalProps = {
   isOpen: boolean
   onClose: () => void
-  date: string | Date
+  date: string
+  isNewEntry: boolean
 }
 
 const MOOD_EMOJIS = {
@@ -22,12 +23,10 @@ const MOOD_EMOJIS = {
   terrible: "😢",
 }
 
-const JournalModal = ({ isOpen, onClose, date }: JournalModalProps) => {
+const JournalModal = ({ isOpen, onClose, date, isNewEntry }: JournalModalProps) => {
   const { addJournalEntry, editJournalEntry, deleteJournalEntry, getJournalEntry, saveReflection } = useHabitStore()
 
-  const dateString = typeof date === "string" ? date : date.toISOString().slice(0, 10)
-
-  const [entry, setEntry] = useState(getJournalEntry(dateString))
+  const [entry, setEntry] = useState(getJournalEntry(date))
   const [content, setContent] = useState("")
   const [mood, setMood] = useState<keyof typeof MOOD_EMOJIS | undefined>(undefined)
   const [reflection, setReflection] = useState<string | null>(null)
@@ -35,28 +34,49 @@ const JournalModal = ({ isOpen, onClose, date }: JournalModalProps) => {
 
   useEffect(() => {
     if (isOpen) {
-      const fetchedEntry = getJournalEntry(dateString)
-      setEntry(fetchedEntry)
-      setContent(fetchedEntry?.content || "")
-      setMood(fetchedEntry?.mood)
-      setReflection(fetchedEntry?.savedReflection || null)
+      if (isNewEntry) {
+        setEntry(undefined)
+        setContent("")
+        setMood(undefined)
+        setReflection(null)
+      } else {
+        const fetchedEntry = getJournalEntry(date)
+        setEntry(fetchedEntry)
+        setContent(fetchedEntry?.content || "")
+        setMood(fetchedEntry?.mood)
+        setReflection(fetchedEntry?.savedReflection || null)
+      }
     }
-  }, [isOpen, dateString, getJournalEntry])
+  }, [isOpen, date, isNewEntry, getJournalEntry])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (entry) {
-      editJournalEntry(entry.id, content, mood, reflection || undefined)
-    } else {
-      addJournalEntry({ date: dateString, content, mood })
+    try {
+      if (isNewEntry) {
+        const currentDate = new Date().toISOString().slice(0, 10)
+        await addJournalEntry({ date: currentDate, content, mood })
+        toast.success("New journal entry added successfully")
+      } else if (entry) {
+        await editJournalEntry(entry.id, content, mood, reflection || undefined)
+        toast.success("Journal entry updated successfully")
+      }
+      onClose()
+    } catch (error) {
+      console.error("Error saving journal entry:", error)
+      toast.error("Failed to save journal entry. Please try again.")
     }
-    onClose()
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (entry && window.confirm("Are you sure you want to delete this journal entry?")) {
-      deleteJournalEntry(entry.id)
-      onClose()
+      try {
+        await deleteJournalEntry(entry.id)
+        toast.success("Journal entry deleted successfully")
+        onClose()
+      } catch (error) {
+        console.error("Error deleting journal entry:", error)
+        toast.error("Failed to delete journal entry. Please try again.")
+      }
     }
   }
 
@@ -101,7 +121,7 @@ const JournalModal = ({ isOpen, onClose, date }: JournalModalProps) => {
 
   if (!isOpen) return null
 
-  const formattedDate = new Date(dateString).toLocaleDateString("default", {
+  const formattedDate = new Date(isNewEntry ? new Date() : date + "T00:00:00").toLocaleDateString("default", {
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -118,7 +138,7 @@ const JournalModal = ({ isOpen, onClose, date }: JournalModalProps) => {
           <X size={24} />
         </button>
 
-        <h2 className="text-2xl font-bold mb-2">Journal Entry</h2>
+        <h2 className="text-2xl font-bold mb-2">{isNewEntry ? "New Journal Entry" : "Edit Journal Entry"}</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-4">{formattedDate}</p>
 
         <div className="flex flex-col lg:flex-row gap-6">
@@ -153,13 +173,13 @@ const JournalModal = ({ isOpen, onClose, date }: JournalModalProps) => {
               </div>
 
               <div className="flex justify-between">
-                {entry && (
+                {!isNewEntry && entry && (
                   <Button type="button" onClick={handleDelete} variant="destructive">
                     Delete Entry
                   </Button>
                 )}
                 <Button type="submit" className="bg-blue-600 text-white hover:bg-blue-700">
-                  {entry ? "Update Entry" : "Save Entry"}
+                  {isNewEntry ? "Save New Entry" : "Update Entry"}
                 </Button>
               </div>
             </form>

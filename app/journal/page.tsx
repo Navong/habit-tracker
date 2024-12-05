@@ -3,9 +3,8 @@
 import React, { useState } from "react"
 import { useHabitStore } from "@/store/useHabitStore"
 import JournalModal from "@/components/JournalModal"
-import { Edit2, Plus, Calendar } from "lucide-react"
+import { Plus, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { DatePicker } from "@/components/DatePicker"
 
 const MOOD_EMOJIS = {
   great: "😄",
@@ -19,7 +18,6 @@ export default function JournalPage() {
   const { getAllJournalEntries } = useHabitStore()
   const [selectedEntry, setSelectedEntry] = useState<string | null>(null)
   const [isNewEntryModalOpen, setIsNewEntryModalOpen] = useState(false)
-  const [newEntryDate, setNewEntryDate] = useState<Date | undefined>(new Date())
 
   const allEntries = getAllJournalEntries()
 
@@ -40,13 +38,10 @@ export default function JournalPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Journal Entries</h1>
-        <div className="flex items-center space-x-2">
-          <DatePicker date={newEntryDate} onDateChange={setNewEntryDate} />
-          <Button onClick={handleNewEntry} className="bg-blue-500 hover:bg-blue-600 text-white">
-            <Plus className="w-5 h-5 mr-2" />
-            New Entry
-          </Button>
-        </div>
+        <Button onClick={handleNewEntry} className="bg-blue-500 hover:bg-blue-600 text-white">
+          <Plus className="w-5 h-5 mr-2" />
+          New Entry
+        </Button>
       </div>
 
       {allEntries.length === 0 ? (
@@ -74,7 +69,7 @@ export default function JournalPage() {
                       {MOOD_EMOJIS[entry.mood as keyof typeof MOOD_EMOJIS]}
                     </span>
                   )}
-                  <Edit2 className="w-5 h-5 text-gray-400" />
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
                 </div>
               </div>
               <p className="text-gray-700 dark:text-gray-300 line-clamp-2">{entry.content}</p>
@@ -83,9 +78,12 @@ export default function JournalPage() {
         </div>
       )}
 
-      <JournalModal isOpen={selectedEntry !== null} onClose={handleCloseModal} date={selectedEntry || ""} />
-
-      <JournalModal isOpen={isNewEntryModalOpen} onClose={handleCloseModal} date={newEntryDate || new Date()} />
+      <JournalModal
+        isOpen={selectedEntry !== null || isNewEntryModalOpen}
+        onClose={handleCloseModal}
+        date={selectedEntry || new Date().toISOString().slice(0, 10)}
+        isNewEntry={isNewEntryModalOpen}
+      />
     </div>
   )
 }
