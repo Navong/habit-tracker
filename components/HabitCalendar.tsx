@@ -1,15 +1,12 @@
 "use client"
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight, Plus, Book, BarChart, Calendar } from "lucide-react"
-import Link from "next/link"
+import { ChevronLeft, ChevronRight, Plus, Calendar } from "lucide-react"
 import { useHabitStore } from "@/store/useHabitStore"
 import HabitForm from "./HabitForm"
-import { ModeToggle } from "./ModeToggle"
-import JournalModal from "./JournalModal"
-import AllJournalsModal from "./AllJournalsModal"
 import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
+// import { toast } from "sonner"
 
 
 const HabitCalendar = () => {
@@ -20,7 +17,6 @@ const HabitCalendar = () => {
     deleteHabit,
     setCurrentDate,
     fetchHabits,
-    fetchJournalEntries,
   } = useHabitStore()
 
   const [isFormOpen, setIsFormOpen] = useState(false)
@@ -48,29 +44,29 @@ const HabitCalendar = () => {
       setError(null)
       try {
         await fetchHabits()
-        await fetchJournalEntries()
+        // await fetchJournalEntries()
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred"
         setError(errorMessage)
-        toast.error(errorMessage)
+        // toast.error(errorMessage)
         console.log(isRefreshing)
       } finally {
         setIsLoading(false)
       }
     }
     loadData()
-  }, [fetchHabits, fetchJournalEntries])
+  }, [fetchHabits])
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
     try {
       await fetchHabits()
-      await fetchJournalEntries()
-      toast.success("Data refreshed successfully")
+      // await fetchJournalEntries()
+      // toast.success("Data refreshed successfully")
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred"
       setError(errorMessage)
-      toast.error(errorMessage)
+      // toast.error(errorMessage)
     } finally {
       setIsRefreshing(false)
     }
@@ -79,7 +75,7 @@ const HabitCalendar = () => {
   const getDays = () => {
     const curr = new Date(currentDate)
     const days = []
-    const daysToShow = isMobile ? 5 : 20
+    const daysToShow = isMobile ? 7 : 20
 
     for (let i = 0; i < daysToShow; i++) {
       const day = new Date(curr)
@@ -96,9 +92,9 @@ const HabitCalendar = () => {
     const dateStr = date.toISOString().split("T")[0]
     try {
       await toggleCompletion(habitId, dateStr)
-      toast.success("Habit completion toggled")
+      // toast.success("Habit completion toggled")
     } catch (err) {
-      toast.error("Failed to toggle habit completion")
+      // toast.error("Failed to toggle habit completion")
       console.error(err)
     }
   }
@@ -107,9 +103,9 @@ const HabitCalendar = () => {
     if (window.confirm("Are you sure you want to delete this habit?")) {
       try {
         await deleteHabit(habitId)
-        toast.success("Habit deleted successfully")
+        // toast.success("Habit deleted successfully")
       } catch (err) {
-        toast.error("Failed to delete habit")
+        // toast.error("Failed to delete habit")
         console.error(err)
       }
     }
@@ -180,10 +176,11 @@ const HabitCalendar = () => {
               </Button>
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={handleTodayClick} size="sm">
+              <Button onClick={handleTodayClick} variant="outline" size="lg" className="mb-1 w-25">
                 <Calendar className="w-4 h-4 mr-2" />
                 Today
               </Button>
+              
               {/* <Button onClick={() => setIsAllJournalsOpen(true)} size="sm">
                 <Book className="w-4 h-4 mr-2" />
                 Journals
@@ -205,7 +202,7 @@ const HabitCalendar = () => {
           <div className="space-y-4">
             {habits.map((habit) => (
               <div key={habit.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
-                <div className="flex justify-between items-center mb-2">
+                <div className="flex justify-between items-center mb-6">
                   <span className="font-medium">{habit.name}</span>
                   <div className="space-x-2">
                     <Button onClick={() => handleEditHabit(habit.id)} variant="outline" size="sm">
@@ -305,7 +302,7 @@ const HabitCalendar = () => {
         )}
 
         {/* Add New Habit Button */}
-        <Button onClick={() => setIsFormOpen(true)} className="mt-4 flex items-center gap-2">
+        <Button onClick={() => setIsFormOpen(true)} variant="outline" size="lg" className="m-2 w-30">
           <Plus className="w-4 h-4" />
           New Habit
         </Button>

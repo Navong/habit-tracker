@@ -148,7 +148,7 @@ const HabitForm = ({ isOpen, onClose, habitToEdit }: HabitFormProps) => {
             </select>
           </div>
 
-          <div>
+          {/* <div>
             <label htmlFor="habit-color" className="block text-sm font-medium mb-1">
               Color
             </label>
@@ -162,7 +162,7 @@ const HabitForm = ({ isOpen, onClose, habitToEdit }: HabitFormProps) => {
               />
               <span className="text-sm">{formData.color}</span>
             </div>
-          </div>
+          </div> */}
 
           <div>
             <label htmlFor="habit-category" className="block text-sm font-medium mb-1">

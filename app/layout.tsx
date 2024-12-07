@@ -30,9 +30,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <Header />
-          <main className="flex-grow container mx-auto px-4 py-8">{children}</main>
+          <Toaster position="top-center" />
+          <main className="flex-grow container mx-auto px-4 py-8">
+            {children}
+          </main>
           <Footer />
-          <Toaster />
         </ThemeProvider>
       </body>
     </html>

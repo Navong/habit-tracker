@@ -1,13 +1,13 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import axios, { type AxiosError } from "axios"
+import { toast } from "sonner"
 
 interface JournalEntry {
   id: string
   date: string
   content: string
   mood?: "great" | "good" | "neutral" | "bad" | "terrible"
-  savedReflection?: string // New field for saved reflection
+  savedReflection?: string
 }
 
 interface Habit {
@@ -21,9 +21,15 @@ interface Habit {
   category: string
 }
 
+interface Mood {
+  date: string
+  mood: "great" | "good" | "neutral" | "bad" | "terrible"
+}
+
 interface HabitStore {
   habits: Habit[]
   journalEntries: JournalEntry[]
+  moods: Mood[]
   currentDate: Date
   fetchHabits: () => Promise<void>
   addHabit: (habit: Omit<Habit, "id" | "completedDates">) => Promise<void>
@@ -44,158 +50,253 @@ interface HabitStore {
   getHabitsByCategory: () => Record<string, Habit[]>
   getJournalEntry: (date: string) => JournalEntry | undefined
   getAllJournalEntries: () => JournalEntry[]
-  saveReflection: (id: string, reflection: string) => Promise<void> // New function
+  saveReflection: (id: string, reflection: string) => Promise<void>
+  setMood: (date: string, mood: Mood["mood"]) => void
+  getMood: (date: string) => Mood["mood"] | undefined
 }
 
-const API_URL = "http://localhost:9000/api"
-
-const handleApiError = (error: unknown, context: string) => {
-  if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError
-    console.error(`${context}:`, axiosError.message)
-    if (axiosError.response) {
-      console.error("Response data:", axiosError.response.data)
-      console.error("Response status:", axiosError.response.status)
-    } else if (axiosError.request) {
-      console.error("No response received:", axiosError.request)
-    } else {
-      console.error("Error setting up request:", axiosError.message)
-    }
-  } else {
-    console.error(`${context}:`, error)
-  }
-}
+const API_URL = "/api"
 
 export const useHabitStore = create<HabitStore>()(
   persist(
     (set, get) => ({
       habits: [],
       journalEntries: [],
+      moods: [],
       currentDate: new Date(),
 
       fetchHabits: async () => {
-        const maxRetries = 3
-        let retries = 0
-        while (retries < maxRetries) {
-          try {
-            const response = await axios.get(`${API_URL}/habits`)
-            set({ habits: response.data })
-            return
-          } catch (error) {
-            retries++
-            if (retries === maxRetries) {
-              if (axios.isAxiosError(error)) {
-                if (error.code === "ECONNABORTED") {
-                  throw new Error("Request timed out. Please check your internet connection.")
-                } else if (error.response) {
-                  throw new Error(`Server responded with ${error.response.status}: ${error.response.data}`)
-                } else if (error.request) {
-                  throw new Error("No response received from the server. Please try again later.")
-                } else {
-                  throw new Error("An unexpected error occurred. Please try again.")
-                }
-              } else {
-                throw error
-              }
-            }
-            // Wait for 1 second before retrying
-            await new Promise((resolve) => setTimeout(resolve, 1000))
+        try {
+          const response = await fetch(`${API_URL}/habits`)
+          if (!response.ok) {
+            throw new Error("Error fetching habits")
           }
+          const data = await response.json()
+          set({ habits: data })
+        } catch (error) {
+          console.error("Error fetching habits:", error)
+          throw error
         }
       },
 
       addHabit: async (habit) => {
+        const newHabit = { ...habit, id: Date.now().toString(), completedDates: [] }
+        set((state) => ({ habits: [...state.habits, newHabit] }))
+
+        const toastId = toast.loading("Adding habit...")
+
         try {
-          const response = await axios.post(`${API_URL}/habits`, habit)
-          set((state) => ({ habits: [...state.habits, response.data] }))
+          const response = await fetch(`${API_URL}/habits`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(habit),
+          })
+          if (!response.ok) {
+            throw new Error("Error adding habit")
+          }
+          const savedHabit = await response.json()
+          set((state) => ({
+            habits: state.habits.map((h) => (h.id === newHabit.id ? savedHabit : h)),
+          }))
+          toast.success("Habit added successfully", { id: toastId })
         } catch (error) {
-          handleApiError(error, "Error adding habit")
+          console.error("Error adding habit:", error)
+          set((state) => ({
+            habits: state.habits.filter((h) => h.id !== newHabit.id),
+          }))
+          toast.error("Failed to add habit", { id: toastId })
+          throw error
         }
       },
 
       toggleCompletion: async (habitId, date) => {
+        const originalHabits = get().habits
+        set((state) => ({
+          habits: state.habits.map((habit) =>
+            habit.id === habitId
+              ? {
+                  ...habit,
+                  completedDates: habit.completedDates.includes(date)
+                    ? habit.completedDates.filter((d) => d !== date)
+                    : [...habit.completedDates, date],
+                }
+              : habit,
+          ),
+        }))
+
+        const toastId = toast.loading("Updating habit...")
+
         try {
-          await axios.put(`${API_URL}/habits/${habitId}/toggle`, { date })
-          set((state) => ({
-            habits: state.habits.map((habit) =>
-              habit.id === habitId
-                ? {
-                    ...habit,
-                    completedDates: habit.completedDates.includes(date)
-                      ? habit.completedDates.filter((d) => d !== date)
-                      : [...habit.completedDates, date],
-                  }
-                : habit,
-            ),
-          }))
+          const response = await fetch(`${API_URL}/habits/${habitId}/toggle`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date }),
+          })
+          if (!response.ok) {
+            throw new Error("Error toggling habit completion")
+          }
+          toast.success("Habit updated successfully", { id: toastId })
         } catch (error) {
-          handleApiError(error, "Error toggling completion")
+          console.error("Error toggling completion:", error)
+          set({ habits: originalHabits })
+          toast.error("Failed to update habit", { id: toastId })
+          throw error
         }
       },
 
       deleteHabit: async (habitId) => {
+        const originalHabits = get().habits
+        set((state) => ({
+          habits: state.habits.filter((habit) => habit.id !== habitId),
+        }))
+
+        const toastId = toast.loading("Deleting habit...")
+
         try {
-          await axios.delete(`${API_URL}/habits/${habitId}`)
-          set((state) => ({
-            habits: state.habits.filter((habit) => habit.id !== habitId),
-          }))
+          const response = await fetch(`${API_URL}/habits/${habitId}`, {
+            method: "DELETE",
+          })
+          if (!response.ok) {
+            throw new Error("Error deleting habit")
+          }
+          toast.success("Habit deleted successfully", { id: toastId })
         } catch (error) {
-          handleApiError(error, "Error deleting habit")
+          console.error("Error deleting habit:", error)
+          set({ habits: originalHabits })
+          toast.error("Failed to delete habit", { id: toastId })
+          throw error
         }
       },
 
       editHabit: async (habitId, updatedHabit) => {
+        const originalHabits = get().habits
+        set((state) => ({
+          habits: state.habits.map((habit) => (habit.id === habitId ? { ...habit, ...updatedHabit } : habit)),
+        }))
+
+        const toastId = toast.loading("Updating habit...")
+
         try {
-          const response = await axios.put(`${API_URL}/habits/${habitId}`, updatedHabit)
+          const response = await fetch(`${API_URL}/habits/${habitId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updatedHabit),
+          })
+          if (!response.ok) {
+            throw new Error("Error updating habit")
+          }
+          const data = await response.json()
           set((state) => ({
-            habits: state.habits.map((habit) => (habit.id === habitId ? { ...habit, ...response.data } : habit)),
+            habits: state.habits.map((habit) => (habit.id === habitId ? { ...habit, ...data } : habit)),
           }))
+          toast.success("Habit updated successfully", { id: toastId })
         } catch (error) {
-          handleApiError(error, "Error updating habit")
-          throw error // Re-throw the error so the component can handle it if needed
+          console.error("Error updating habit:", error)
+          set({ habits: originalHabits })
+          toast.error("Failed to update habit", { id: toastId })
+          throw error
         }
       },
 
       fetchJournalEntries: async () => {
         try {
-          const response = await axios.get(`${API_URL}/journals`)
-          set({ journalEntries: response.data })
+          const response = await fetch(`${API_URL}/journals`)
+          if (!response.ok) {
+            throw new Error("Error fetching journal entries")
+          }
+          const data = await response.json()
+          set({ journalEntries: data })
         } catch (error) {
-          handleApiError(error, "Error fetching journal entries")
-          throw error // Re-throw the error so it can be caught in the component
+          console.error("Error fetching journal entries:", error)
+          throw error
         }
       },
 
       addJournalEntry: async (entry) => {
+        const newEntry = { ...entry, id: Date.now().toString() }
+        set((state) => ({ journalEntries: [...state.journalEntries, newEntry] }))
+
+        const toastId = toast.loading("Adding journal entry...")
+
         try {
-          const response = await axios.post(`${API_URL}/journals`, entry)
-          set((state) => ({ journalEntries: [...state.journalEntries, response.data] }))
+          const response = await fetch(`${API_URL}/journals`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(entry),
+          })
+          if (!response.ok) {
+            throw new Error("Error adding journal entry")
+          }
+          const savedEntry = await response.json()
+          set((state) => ({
+            journalEntries: state.journalEntries.map((e) => (e.id === newEntry.id ? savedEntry : e)),
+          }))
+          toast.success("Journal entry added successfully", { id: toastId })
         } catch (error) {
-          handleApiError(error, "Error adding journal entry")
+          console.error("Error adding journal entry:", error)
+          set((state) => ({
+            journalEntries: state.journalEntries.filter((e) => e.id !== newEntry.id),
+          }))
+          toast.error("Failed to add journal entry", { id: toastId })
+          throw error
         }
       },
 
       editJournalEntry: async (id, content, mood, savedReflection) => {
+        const originalEntries = get().journalEntries
+        set((state) => ({
+          journalEntries: state.journalEntries.map((entry) =>
+            entry.id === id ? { ...entry, content, mood, savedReflection } : entry,
+          ),
+        }))
+
+        const toastId = toast.loading("Updating journal entry...")
+
         try {
-          const response = await axios.put(`${API_URL}/journals/${id}`, { content, mood, savedReflection })
+          const response = await fetch(`${API_URL}/journals/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content, mood, savedReflection }),
+          })
+          if (!response.ok) {
+            throw new Error("Error updating journal entry")
+          }
+          const updatedEntry = await response.json()
           set((state) => ({
             journalEntries: state.journalEntries.map((entry) =>
-              entry.id === id ? { ...entry, ...response.data } : entry,
+              entry.id === id ? { ...entry, ...updatedEntry } : entry,
             ),
           }))
+          toast.success("Journal entry updated successfully", { id: toastId })
         } catch (error) {
-          handleApiError(error, "Error updating journal entry")
+          console.error("Error updating journal entry:", error)
+          set({ journalEntries: originalEntries })
+          toast.error("Failed to update journal entry", { id: toastId })
+          throw error
         }
       },
 
       deleteJournalEntry: async (id) => {
+        const originalEntries = get().journalEntries
+        set((state) => ({
+          journalEntries: state.journalEntries.filter((entry) => entry.id !== id),
+        }))
+
+        const toastId = toast.loading("Deleting journal entry...")
+
         try {
-          await axios.delete(`${API_URL}/journals/${id}`)
-          set((state) => ({
-            journalEntries: state.journalEntries.filter((entry) => entry.id !== id),
-          }))
+          const response = await fetch(`${API_URL}/journals/${id}`, {
+            method: "DELETE",
+          })
+          if (!response.ok) {
+            throw new Error("Error deleting journal entry")
+          }
+          toast.success("Journal entry deleted successfully", { id: toastId })
         } catch (error) {
-          handleApiError(error, "Error deleting journal entry")
+          console.error("Error deleting journal entry:", error)
+          set({ journalEntries: originalEntries })
+          toast.error("Failed to delete journal entry", { id: toastId })
+          throw error
         }
       },
 
@@ -265,21 +366,61 @@ export const useHabitStore = create<HabitStore>()(
       getAllJournalEntries: () => {
         return get().journalEntries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       },
+
       saveReflection: async (id, reflection) => {
+        const originalEntries = get().journalEntries
+        set((state) => ({
+          journalEntries: state.journalEntries.map((entry) =>
+            entry.id === id ? { ...entry, savedReflection: reflection } : entry,
+          ),
+        }))
+
+        const toastId = toast.loading("Saving reflection...")
+
         try {
-          const response = await axios.put(`${API_URL}/journals/${id}/reflection`, { savedReflection: reflection })
+          const response = await fetch(`${API_URL}/journals/${id}/reflection`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ savedReflection: reflection }),
+          })
+          if (!response.ok) {
+            throw new Error("Error saving reflection")
+          }
+          const data = await response.json()
           set((state) => ({
             journalEntries: state.journalEntries.map((entry) =>
-              entry.id === id ? { ...entry, savedReflection: response.data.savedReflection } : entry,
+              entry.id === id ? { ...entry, savedReflection: data.savedReflection } : entry,
             ),
           }))
+          toast.success("Reflection saved successfully", { id: toastId })
         } catch (error) {
-          handleApiError(error, "Error saving reflection")
+          console.error("Error saving reflection:", error)
+          set({ journalEntries: originalEntries })
+          toast.error("Failed to save reflection", { id: toastId })
+          throw error
         }
+      },
+
+      setMood: (date, mood) => {
+        set((state) => {
+          const existingMoodIndex = state.moods.findIndex((m) => m.date === date)
+          if (existingMoodIndex !== -1) {
+            const newMoods = [...state.moods]
+            newMoods[existingMoodIndex] = { date, mood }
+            return { moods: newMoods }
+          } else {
+            return { moods: [...state.moods, { date, mood }] }
+          }
+        })
+      },
+
+      getMood: (date) => {
+        const mood = get().moods.find((m) => m.date === date)
+        return mood ? mood.mood : undefined
       },
     }),
     {
-      name: "habit-journal-store",
+      name: "habit-store",
     },
   ),
 )
