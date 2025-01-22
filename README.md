@@ -56,4 +56,4 @@
 
 ## 라이선스
 
-이 프로젝트는 [MIT License](LICENSE)로 라이선스가 부여되어 있습니다.
+이 프로젝트는 [Apache License 2.0](LICENSE)로 라이선스가 부여되어 있습니다.
