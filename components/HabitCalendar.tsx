@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Plus, Calendar } from "lucide-react"
 import { useHabitStore } from "@/store/useHabitStore"
 import HabitForm from "./HabitForm"
 import { Button } from "@/components/ui/button"
+import HabitCalendarSkeleton from "./HabitCalendarSkeleton"
 // import { toast } from "sonner"
 
 
@@ -142,7 +143,7 @@ const HabitCalendar = () => {
   }
 
   if (isLoading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>
+    return <HabitCalendarSkeleton />
   }
 
   if (error) {
@@ -316,10 +317,6 @@ const HabitCalendar = () => {
         }}
         habitToEdit={editingHabit ? habits.find((h) => h.id === editingHabit) : undefined}
       />
-
-      {/* {journalDate && <JournalModal isOpen={true} onClose={() => setJournalDate(null)} date={journalDate} isNewEntry={false} />} */}
-
-      {/* <AllJournalsModal isOpen={isAllJournalsOpen} onClose={() => setIsAllJournalsOpen(false)} /> */}
     </div>
   )
 }
