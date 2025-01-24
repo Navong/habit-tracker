@@ -11,6 +11,11 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Habit Tracker",
   description: "Track your habits and improve your life",
+  icons: {
+    icon: '/favicon.ico', // Path to your favicon in the public folder
+    shortcut: '/favicon.ico', // Optional, for shortcuts
+    apple: '/apple-touch-icon.png', // Optional, for Apple devices
+  },
 }
 
 export default function RootLayout({
