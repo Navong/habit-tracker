@@ -52,7 +52,7 @@ const HabitCalendar = () => {
         // toast.error(errorMessage)
         console.log(isRefreshing)
       } finally {
-        setIsLoading(true)
+        setIsLoading(false)
       }
     }
     loadData()
