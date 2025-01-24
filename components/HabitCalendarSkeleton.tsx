@@ -38,7 +38,7 @@ const HabitCalendarSkeleton = () => {
               <div key={habit} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
                 <div className="flex justify-between items-center mb-6">
                   <Skeleton className="h-6 w-40" />
-                  <div className="space-x-2">
+                  <div className="space-y-2">
                     <Skeleton className="h-8 w-16" />
                     <Skeleton className="h-8 w-16" />
                   </div>
